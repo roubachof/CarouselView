@@ -185,7 +185,13 @@ namespace CarouselView.FormsPlugin.iOS
                 { 
 	                ElementWidth = rect.Width;
 	                ElementHeight = rect.Height;
-	                SetNativeView();
+
+                    if (pageController != null)
+                    {
+                        return;
+                    }
+
+                    SetNativeView();
 	                Element.PositionSelected?.Invoke(Element, Element.Position);
 	            }
 			}
@@ -644,14 +650,22 @@ namespace CarouselView.FormsPlugin.iOS
 			}
 		}
 
+	    private readonly Dictionary<int, ViewContainer> _viewControllerCache = new Dictionary<int, ViewContainer>();
+
 		#region adapter
 		UIViewController CreateViewController(int index)
 		{
+		    if (_viewControllerCache.TryGetValue(index, out ViewContainer viewContainer))
+		    {
+                return viewContainer;
+		    }
+
 			// Significant Memory Leak for iOS when using custom layout for page content #125
 			var newTag = Source[index];
-			foreach (ViewContainer child in pageController.ChildViewControllers)
+			foreach (var uiViewController in pageController.ChildViewControllers)
 			{
-				if (child.Tag == newTag)
+			    var child = (ViewContainer)uiViewController;
+			    if (child.Tag == newTag)
 					return child;
 			}
 
@@ -660,46 +674,39 @@ namespace CarouselView.FormsPlugin.iOS
 			object bindingContext = null;
 
 			if (Source != null && Source?.Count > 0)
-				bindingContext = Source.Cast<object>().ElementAt(index);
-            
-			var dt = bindingContext as DataTemplate;
+				bindingContext = Source.ElementAt(index);
 
-			// Support for List<DataTemplate> as ItemsSource
-			if (dt != null)
+		    // Support for List<DataTemplate> as ItemsSource
+			switch (bindingContext)
 			{
-				formsView = (View)dt.CreateContent();
-			}
-			else
-			{
-				// Support for List<View> as ItemsSource
-				var view = bindingContext as View;
+			    case DataTemplate dt:
+			        formsView = (View)dt.CreateContent();
+			        break;
 
-                if (view != null)
-                {
-                    if (ChildViewControllers == null)
-                        ChildViewControllers = new List<ViewContainer>();
+			    case View view:
+			        if (ChildViewControllers == null)
+			            ChildViewControllers = new List<ViewContainer>();
 
-                    // Return from the local copy of controllers
-                    foreach(ViewContainer controller in ChildViewControllers)
-                    {
-                        if (controller.Tag == view)
-                        {
-                            return controller;
-                        }
-                    }
+			        // Return from the local copy of controllers
+			        foreach(ViewContainer controller in ChildViewControllers)
+			        {
+			            if (controller.Tag == view)
+			            {
+			                return controller;
+			            }
+			        }
 
-                    formsView = view;
-                }
-                else
-                {
-                    var selector = Element.ItemTemplate as DataTemplateSelector;
-                    if (selector != null)
-                        formsView = (View)selector.SelectTemplate(bindingContext, Element).CreateContent();
-                    else
-                        formsView = (View)Element.ItemTemplate.CreateContent();
+			        formsView = view;
+			        break;
 
-                    formsView.BindingContext = bindingContext;
-                }
+			    default:
+			        if (Element.ItemTemplate is DataTemplateSelector selector)
+			            formsView = (View)selector.SelectTemplate(bindingContext, Element).CreateContent();
+			        else
+			            formsView = (View)Element.ItemTemplate.CreateContent();
+
+			        formsView.BindingContext = bindingContext;
+			        break;
 			}
 
 			// HeightRequest fix
@@ -709,11 +716,15 @@ namespace CarouselView.FormsPlugin.iOS
 			var rect = new CGRect(Element.X, Element.Y, ElementWidth, ElementHeight);
 			var nativeConverted = formsView.ToiOS(rect);
 
-			var viewController = new ViewContainer();
-			viewController.Tag = bindingContext;
-            viewController.View = nativeConverted;
+		    var viewController = new ViewContainer
+		        {
+		            Tag = bindingContext,
+		            View = nativeConverted
+		        };
 
-            // Only happens when ItemsSource is List<View>
+		    _viewControllerCache.Add(index, viewController);
+
+		    // Only happens when ItemsSource is List<View>
             if (ChildViewControllers != null)
             {
                 ChildViewControllers.Add(viewController);
@@ -745,13 +756,17 @@ namespace CarouselView.FormsPlugin.iOS
 				pageController.GetNextViewController = null;*/
 
 				foreach (var child in pageController.ChildViewControllers)
-					child.Dispose();
+                {
+                    child.Dispose();
+                }
 
-				foreach (var child in pageController.ViewControllers)
-					child.Dispose();
+                foreach (var child in pageController.ViewControllers)
+                {
+                    child.Dispose();
+                }
 
                 // Cleanup ChildViewControllers
-				if (ChildViewControllers != null)
+                if (ChildViewControllers != null)
 				{
                     foreach (var child in ChildViewControllers)
 					{
@@ -773,7 +788,14 @@ namespace CarouselView.FormsPlugin.iOS
 		{
 			if (disposing && !_disposed)
 			{
-				pageController.DidFinishAnimating -= PageController_DidFinishAnimating;
+			    foreach (var index in _viewControllerCache.Keys.ToList())
+			    {
+			        var viewController = _viewControllerCache[index];
+			        _viewControllerCache.Remove(index);
+			        viewController.Dispose();
+			    }
+                
+                pageController.DidFinishAnimating -= PageController_DidFinishAnimating;
 				pageController.GetPreviousViewController = null;
 				pageController.GetNextViewController = null;
 

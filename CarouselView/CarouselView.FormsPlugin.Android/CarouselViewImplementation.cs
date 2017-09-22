@@ -13,6 +13,10 @@ using AWidget = Android.Widget;
 using System.Collections.Specialized;
 using System.Collections.Generic;
 
+using Android.Support.V4.App;
+using Android.OS;
+using Android.Runtime;
+
 /*
  * Save state in Android:
  * 
@@ -137,7 +141,7 @@ namespace CarouselView.FormsPlugin.Android
                 if (Element != null && viewPager != null)
                 {
                     SetPosition();
-                    viewPager.Adapter = new PageAdapter(Element);
+                    viewPager.Adapter = CreatePageAdapter();
                     viewPager.SetCurrentItem(Element.Position, false);
                     indicators?.SetViewPager(viewPager);
                     Element.PositionSelected?.Invoke(Element, Element.Position);
@@ -156,9 +160,11 @@ namespace CarouselView.FormsPlugin.Android
 
                 ElementWidth = rect.Width;
                 //ElementHeight = rect.Height;
-
-                SetNativeView();
-                Element.PositionSelected?.Invoke(Element, Element.Position);
+                
+                if (SetNativeView())
+                {
+                    Element.PositionSelected?.Invoke(Element, Element.Position);
+                }
             }
         }
 
@@ -184,8 +190,11 @@ namespace CarouselView.FormsPlugin.Android
                     if (Element != null)
                     {
                         orientationChanged = true;
-                        SetNativeView();
-                        Element.PositionSelected?.Invoke(Element, Element.Position);
+
+                        if (SetNativeView())
+                        {
+                            Element.PositionSelected?.Invoke(Element, Element.Position);
+                        }
                     }
                     break;
                 case "InterPageSpacing":
@@ -215,7 +224,7 @@ namespace CarouselView.FormsPlugin.Android
                     if (Element != null && viewPager != null)
                     {
                         SetPosition();
-                        viewPager.Adapter = new PageAdapter(Element);
+                        viewPager.Adapter = CreatePageAdapter();
                         viewPager.SetCurrentItem(Element.Position, false);
                         indicators?.SetViewPager(viewPager);
                         Element.PositionSelected?.Invoke(Element, Element.Position);
@@ -226,7 +235,7 @@ namespace CarouselView.FormsPlugin.Android
                 case "ItemTemplate":
                     if (Element != null && viewPager != null)
                     {
-                        viewPager.Adapter = new PageAdapter(Element);
+                        viewPager.Adapter = CreatePageAdapter();
                         viewPager.SetCurrentItem(Element.Position, false);
                         indicators?.SetViewPager(viewPager);
                         Element.PositionSelected?.Invoke(Element, Element.Position);
@@ -290,7 +299,9 @@ namespace CarouselView.FormsPlugin.Android
             indicators.mSnapPage = Element.Position;
         }
 
-        void SetNativeView()
+        PageAdapter CreatePageAdapter() => new PageAdapter(((FormsAppCompatActivity)Forms.Context).SupportFragmentManager, Element);
+
+        bool SetNativeView()
         {
             if (orientationChanged)
             {
@@ -303,11 +314,17 @@ namespace CarouselView.FormsPlugin.Android
                     nativeView = inflater.Inflate(Resource.Layout.vertical_viewpager, null);
 
                 viewPager = nativeView.FindViewById<ViewPager>(Resource.Id.pager);
+                viewPager.OffscreenPageLimit = 3;
 
                 orientationChanged = false;
             }
 
-            viewPager.Adapter = new PageAdapter(Element);
+            if (viewPager.Adapter != null)
+            {
+                return false;
+            }
+
+            viewPager.Adapter = CreatePageAdapter();
             viewPager.SetCurrentItem(Element.Position, false);
 
             // InterPageSpacing BP
@@ -332,6 +349,8 @@ namespace CarouselView.FormsPlugin.Android
             // INDICATORS
             indicators = nativeView.FindViewById<CirclePageIndicator>(Resource.Id.indicator);
             SetIndicators();
+
+            return true;
         }
 
         void SetIndicators()
@@ -431,10 +450,27 @@ namespace CarouselView.FormsPlugin.Android
             }
         }
 
+        class CarouselItemFragment : Fragment
+        {
+            public AViews.ViewGroup NativeView { get; set; }
+
+            public override AViews.View OnCreateView(
+                AViews.LayoutInflater inflater,
+                AViews.ViewGroup container,
+                Bundle savedInstanceState)
+            {
+                base.OnCreateView(inflater, container, savedInstanceState);
+
+                return NativeView;
+            }
+        }    
+
         #region adapter
-        class PageAdapter : PagerAdapter
+        class PageAdapter : FragmentStatePagerAdapter
         {
             CarouselViewControl Element;
+
+            private readonly Dictionary<int, View> _viewCache;
 
             // A local copy of ItemsSource so we can use CollectionChanged events
             public List<object> Source;
@@ -443,10 +479,17 @@ namespace CarouselView.FormsPlugin.Android
             //SparseArray<Parcelable> mViewStates = new SparseArray<Parcelable>();
             //ViewPager mViewPager;
 
-            public PageAdapter(CarouselViewControl element)
+            public PageAdapter(IntPtr javaReference, JniHandleOwnership transfer)
+                : base(javaReference, transfer)
+            {
+            }
+
+            public PageAdapter(FragmentManager fm, CarouselViewControl element)
+                :base(fm)
             {
                 Element = element;
                 Source = Element.ItemsSource != null ? new List<object>(Element.ItemsSource.GetList()) : null;
+                _viewCache = new Dictionary<int, View>();
             }
 
             public override int Count
@@ -457,12 +500,7 @@ namespace CarouselView.FormsPlugin.Android
                 }
             }
 
-            public override bool IsViewFromObject(AViews.View view, Java.Lang.Object @object)
-            {
-                return view == @object;
-            }
-
-            public override Java.Lang.Object InstantiateItem(AViews.ViewGroup container, int position)
+            public override Fragment GetItem(int position)
             {
                 View formsView = null;
 
@@ -471,63 +509,119 @@ namespace CarouselView.FormsPlugin.Android
                 if (Source != null && Source?.Count > 0)
                     bindingContext = Source.Cast<object>().ElementAt(position);
 
-                var dt = bindingContext as DataTemplate;
-
                 // Support for List<DataTemplate> as ItemsSource
-                if (dt != null)
+                switch (bindingContext)
                 {
-                    formsView = (View)dt.CreateContent();
-                }
-                else
-                {
-                    var view = bindingContext as View;
+                    case DataTemplate dt:
+                        formsView = (View)dt.CreateContent();
+                        break;
 
-                    if (view != null)
-                    {
+                    case View view:
                         formsView = view;
-                    }
-                    else
-                    {
-                        var selector = Element.ItemTemplate as DataTemplateSelector;
-                        if (selector != null)
-                            formsView = (View)selector.SelectTemplate(bindingContext, Element).CreateContent();
-                        else
-                            formsView = (View)Element.ItemTemplate.CreateContent();
+                        break;
+
+                    default:
+                        //if (!_viewCache.TryGetValue(position, out formsView))
+                        //{
+                            if (Element.ItemTemplate is DataTemplateSelector selector)
+                                formsView = (View)selector.SelectTemplate(bindingContext, Element).CreateContent();
+                            else
+                                formsView = (View)Element.ItemTemplate.CreateContent();
+
+                            // _viewCache.Add(position, formsView);
+
+                        //}
 
                         formsView.BindingContext = bindingContext;
-                    }
+                        break;
                 }
 
-                // HeightRequest fix
                 formsView.Parent = this.Element;
 
                 var nativeConverted = formsView.ToAndroid(new Rectangle(0, 0, Element.Width, Element.Height));
-                nativeConverted.Tag = new Tag() { BindingContext = bindingContext }; //position;
-
+                //nativeConverted.Tag = new Tag() { BindingContext = bindingContext }; //position;
                 //nativeConverted.SaveEnabled = true;
                 //nativeConverted.RestoreHierarchyState(mViewStates);
 
-                var pager = (ViewPager)container;
-                pager.AddView(nativeConverted);
-
-                return nativeConverted;
+                return new CarouselItemFragment() { NativeView = nativeConverted };
             }
 
             public override void DestroyItem(AViews.ViewGroup container, int position, Java.Lang.Object @object)
             {
-                var pager = (ViewPager)container;
-                var view = (AViews.ViewGroup)@object;
-                //view.SaveEnabled = true;
-                //view.SaveHierarchyState(mViewStates);
-                pager.RemoveView(view);
+                var view = (CarouselItemFragment)@object;
             }
 
-            public override int GetItemPosition(Java.Lang.Object @object)
-            {
-                var tag = (Tag)((AViews.View)@object).Tag;
-                var position = Source.IndexOf(tag.BindingContext);
-                return position != -1 ? position : PositionNone;
-            }
+            //public override bool IsViewFromObject(AViews.View view, Java.Lang.Object @object)
+            //{
+            //    return view == @object;
+            //}
+
+            //public override Java.Lang.Object InstantiateItem(AViews.ViewGroup container, int position)
+            //{
+            //    View formsView = null;
+
+            //    object bindingContext = null;
+
+            //    if (Source != null && Source?.Count > 0)
+            //        bindingContext = Source.Cast<object>().ElementAt(position);
+
+            //    var dt = bindingContext as DataTemplate;
+
+            //    // Support for List<DataTemplate> as ItemsSource
+            //    if (dt != null)
+            //    {
+            //        formsView = (View)dt.CreateContent();
+            //    }
+            //    else
+            //    {
+            //        var view = bindingContext as View;
+
+            //        if (view != null)
+            //        {
+            //            formsView = view;
+            //        }
+            //        else
+            //        {
+            //            var selector = Element.ItemTemplate as DataTemplateSelector;
+            //            if (selector != null)
+            //                formsView = (View)selector.SelectTemplate(bindingContext, Element).CreateContent();
+            //            else
+            //                formsView = (View)Element.ItemTemplate.CreateContent();
+
+            //            formsView.BindingContext = bindingContext;
+            //        }
+            //    }
+
+            //    // HeightRequest fix
+            //    formsView.Parent = this.Element;
+
+            //    var nativeConverted = formsView.ToAndroid(new Rectangle(0, 0, Element.Width, Element.Height));
+            //    nativeConverted.Tag = new Tag() { BindingContext = bindingContext }; //position;
+
+            //    //nativeConverted.SaveEnabled = true;
+            //    //nativeConverted.RestoreHierarchyState(mViewStates);
+
+            //    var pager = (ViewPager)container;
+            //    pager.AddView(nativeConverted);
+
+            //    return nativeConverted;
+            //}
+
+            //public override void DestroyItem(AViews.ViewGroup container, int position, Java.Lang.Object @object)
+            //{
+            //    var pager = (ViewPager)container;
+            //    var view = (AViews.ViewGroup)@object;
+            //    //view.SaveEnabled = true;
+            //    //view.SaveHierarchyState(mViewStates);
+            //    pager.RemoveView(view);
+            //}
+
+            //public override int GetItemPosition(Java.Lang.Object @object)
+            //{
+            //    var tag = (Tag)((AViews.View)@object).Tag;
+            //    var position = Source.IndexOf(tag.BindingContext);
+            //    return position != -1 ? position : PositionNone;
+            //}
 
             /*public override IParcelable SaveState()
 			{
