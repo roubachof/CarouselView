@@ -538,7 +538,7 @@ namespace CarouselView.FormsPlugin.Android
 
                 formsView.Parent = this.Element;
 
-                var nativeConverted = formsView.ToAndroid(new Rectangle(0, 0, Element.Width, Element.Height));
+                var nativeConverted = formsView.ToAndroid(Element, new Rectangle(0, 0, Element.Width, Element.Height));
                 //nativeConverted.Tag = new Tag() { BindingContext = bindingContext }; //position;
                 //nativeConverted.SaveEnabled = true;
                 //nativeConverted.RestoreHierarchyState(mViewStates);

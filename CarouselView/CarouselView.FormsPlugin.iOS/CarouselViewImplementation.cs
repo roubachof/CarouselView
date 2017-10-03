@@ -716,11 +716,7 @@ namespace CarouselView.FormsPlugin.iOS
 			var rect = new CGRect(Element.X, Element.Y, ElementWidth, ElementHeight);
 			var nativeConverted = formsView.ToiOS(rect);
 
-		    var viewController = new ViewContainer
-		        {
-		            Tag = bindingContext,
-		            View = nativeConverted
-		        };
+		    var viewController = new ViewContainer(nativeConverted, formsView, Element, bindingContext);
 
 		    _viewControllerCache.Add(index, viewController);
 

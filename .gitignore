@@ -19,3 +19,5 @@ packages
 \.vs/CarouselView/v15/sqlite3/storage\.ide
 
 \.vs/CarouselView/v15/\.suo
+
+*.user

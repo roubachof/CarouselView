@@ -2,8 +2,6 @@
 using UIKit;
 using Xamarin.Forms.Platform.iOS;
 using CoreGraphics;
-using Xamarin.Forms;
-using System.Collections.ObjectModel;
 
 namespace CarouselView.FormsPlugin.iOS
 {
