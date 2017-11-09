@@ -523,10 +523,24 @@ namespace CarouselView.FormsPlugin.Android
                     default:
                         //if (!_viewCache.TryGetValue(position, out formsView))
                         //{
-                            if (Element.ItemTemplate is DataTemplateSelector selector)
-                                formsView = (View)selector.SelectTemplate(bindingContext, Element).CreateContent();
-                            else
-                                formsView = (View)Element.ItemTemplate.CreateContent();
+
+                        // 20171109 - Temporary fix for XF 2.4.0.38779, that introduced a regression
+                        IReadOnlyList<string> deviceFlags = Device.Flags;
+
+                        if (deviceFlags == null)
+                        {
+                            Device.SetFlags(new List<string>());
+                        }
+
+                        if (Element.ItemTemplate is DataTemplateSelector selector)
+                            formsView = (View)selector.SelectTemplate(bindingContext, Element).CreateContent();
+                        else
+                            formsView = (View)Element.ItemTemplate.CreateContent();
+
+                        if (deviceFlags == null)
+                        {
+                            Device.SetFlags(deviceFlags);
+                        }
 
                             // _viewCache.Add(position, formsView);
 

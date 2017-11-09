@@ -700,12 +700,27 @@ namespace CarouselView.FormsPlugin.iOS
 			        break;
 
 			    default:
+
+                    // 20171109 - Temporary fix for XF 2.4.0.38779, that introduced a regression
+                    IReadOnlyList<string> deviceFlags = Device.Flags;
+
+                    if (deviceFlags == null)
+                    {
+                        Device.SetFlags(new List<string>());
+                    }
+
 			        if (Element.ItemTemplate is DataTemplateSelector selector)
 			            formsView = (View)selector.SelectTemplate(bindingContext, Element).CreateContent();
 			        else
 			            formsView = (View)Element.ItemTemplate.CreateContent();
 
 			        formsView.BindingContext = bindingContext;
+
+                    if (deviceFlags == null)
+                    {
+                        Device.SetFlags(deviceFlags);
+                    }
+
 			        break;
 			}
 
