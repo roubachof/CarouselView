@@ -313,7 +313,7 @@ namespace CarouselView.FormsPlugin.Android
                 else
                     nativeView = inflater.Inflate(Resource.Layout.vertical_viewpager, null);
 
-                viewPager = nativeView.FindViewById<ViewPager>(Resource.Id.pager);
+                viewPager = (ViewPager)((AViews.ViewGroup)nativeView).GetChildAt(0);
                 viewPager.OffscreenPageLimit = 3;
 
                 orientationChanged = false;
