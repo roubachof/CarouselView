@@ -16,6 +16,7 @@ using System.Collections.Generic;
 using Android.Support.V4.App;
 using Android.OS;
 using Android.Runtime;
+using Android.Content;
 
 /*
  * Save state in Android:
@@ -39,6 +40,8 @@ namespace CarouselView.FormsPlugin.Android
     /// </summary>
     public class CarouselViewRenderer : ViewRenderer<CarouselViewControl, AViews.View>
     {
+        Context _context;
+
         bool orientationChanged;
 
         AViews.View nativeView;
@@ -48,6 +51,12 @@ namespace CarouselView.FormsPlugin.Android
 
         double ElementWidth = -1;
         //double ElementHeight;
+
+        public CarouselViewRenderer(Context context) 
+            : base(context)
+        {
+            _context = context;
+        }
 
         protected override void OnElementChanged(ElementChangedEventArgs<CarouselViewControl> e)
         {
@@ -299,13 +308,13 @@ namespace CarouselView.FormsPlugin.Android
             indicators.mSnapPage = Element.Position;
         }
 
-        PageAdapter CreatePageAdapter() => new PageAdapter(((FormsAppCompatActivity)Forms.Context).SupportFragmentManager, Element);
+        PageAdapter CreatePageAdapter() => new PageAdapter(((FormsAppCompatActivity)_context).SupportFragmentManager, Element);
 
         bool SetNativeView()
         {
             if (orientationChanged)
             {
-                var inflater = AViews.LayoutInflater.From(Forms.Context);
+                var inflater = AViews.LayoutInflater.From(_context);
 
                 // Orientation BP
                 if (Element.Orientation == CarouselViewOrientation.Horizontal)

@@ -1,15 +1,13 @@
 ﻿using System;
 using Xamarin.Forms;
 using System.Collections;
-using System.Linq;
-using System.Collections.Generic;
 
 namespace CarouselView.FormsPlugin.Abstractions
 {
 	/// <summary>
 	/// CarouselView Interface
 	/// </summary>
-	public class CarouselViewControl : View
+	public class CarouselViewControl : View, IDisposable
 	{
 		public static readonly BindableProperty OrientationProperty = BindableProperty.Create("Orientation", typeof(CarouselViewOrientation), typeof(CarouselViewControl), CarouselViewOrientation.Horizontal);
 
@@ -110,5 +108,16 @@ namespace CarouselView.FormsPlugin.Abstractions
 		}
 
 		public EventHandler<int> PositionSelected;
+
+	    public void Dispose()
+	    {
+	        foreach (var item in ItemsSource)
+	        {
+	            if (item is IDisposable disposableItem)
+	            {
+	                disposableItem.Dispose();
+	            }
+	        }
+	    }
 	}
 }
