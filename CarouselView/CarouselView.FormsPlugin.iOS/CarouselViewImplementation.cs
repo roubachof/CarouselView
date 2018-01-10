@@ -63,7 +63,9 @@ namespace CarouselView.FormsPlugin.iOS
 		double ElementWidth;
 		double ElementHeight;
 
-		protected override void OnElementChanged(ElementChangedEventArgs<CarouselViewControl> e)
+	    private INotifyCollectionChanged _itemSource;
+
+        protected override void OnElementChanged(ElementChangedEventArgs<CarouselViewControl> e)
 		{
 			base.OnElementChanged(e);
 
@@ -96,10 +98,13 @@ namespace CarouselView.FormsPlugin.iOS
 			{
 				Element.SizeChanged += Element_SizeChanged;
 
-				// Configure the control and subscribe to event handlers
-				if (Element.ItemsSource != null && Element.ItemsSource is INotifyCollectionChanged)
-					((INotifyCollectionChanged)Element.ItemsSource).CollectionChanged += ItemsSource_CollectionChanged;
-			}
+                // Configure the control and subscribe to event handlers
+			    if (Element.ItemsSource is INotifyCollectionChanged sourceCollection)
+			    {
+			        _itemSource = sourceCollection;
+			        _itemSource.CollectionChanged += ItemsSource_CollectionChanged;
+			    }
+            }
 		}
 
 		async void ItemsSource_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
@@ -224,7 +229,7 @@ namespace CarouselView.FormsPlugin.iOS
 				case "Renderer":
 					// Fix for issues after recreating the control #86
 					if (Element != null)
-						prevPosition = Element.Position;
+						_prevPosition = Element.Position;
 					break;
 				case "Orientation":
 					if (Element != null)
@@ -264,9 +269,17 @@ namespace CarouselView.FormsPlugin.iOS
 						SetPosition();
 						SetNativeView();
 						Element.PositionSelected?.Invoke(Element, Element.Position);
-						if (Element.ItemsSource != null && Element.ItemsSource is INotifyCollectionChanged)
-							((INotifyCollectionChanged)Element.ItemsSource).CollectionChanged += ItemsSource_CollectionChanged;
-					}
+					    if (Element.ItemsSource is INotifyCollectionChanged sourceCollection)
+					    {
+					        if (_itemSource != null)
+					        {
+					            _itemSource.CollectionChanged -= ItemsSource_CollectionChanged;
+					        }
+
+					        _itemSource = sourceCollection;
+					        _itemSource.CollectionChanged += ItemsSource_CollectionChanged;
+					    }
+                    }
 					break;
 				case "ItemTemplate":
 					if (Element != null)
@@ -286,8 +299,7 @@ namespace CarouselView.FormsPlugin.iOS
 		{
 			foreach (var view in pageController?.View.Subviews)
 			{
-				var scroller = view as UIScrollView;
-				if (scroller != null)
+			    if (view is UIScrollView scroller)
 				{
 					scroller.ScrollEnabled = Element.IsSwipingEnabled;
 				}
@@ -306,7 +318,7 @@ namespace CarouselView.FormsPlugin.iOS
 				var position = Source.IndexOf(controller.Tag);
 				isSwiping = true;
 				Element.Position = position;
-				prevPosition = position;
+				_prevPosition = position;
 				isSwiping = false;
 				SetIndicatorsCurrentPage();
 				Element.PositionSelected?.Invoke(Element, position);
@@ -330,7 +342,7 @@ namespace CarouselView.FormsPlugin.iOS
 			{
 				Element.Position = 0;
 			}
-			prevPosition = Element.Position;
+			_prevPosition = Element.Position;
 			isSwiping = false;
 		}
 
@@ -537,30 +549,32 @@ namespace CarouselView.FormsPlugin.iOS
 				Source.Insert(position, item);
 
                 // Because we maybe inserting into an empty PageController
-				UIViewController firstViewController;
-				if (pageController.ViewControllers.Count() > 0)
-					firstViewController = pageController.ViewControllers[0];
-				else
-					firstViewController = CreateViewController(Element.Position);
+			    var firstViewController = pageController.ViewControllers.Any()
+			        ? pageController.ViewControllers[0] 
+			        : CreateViewController(Element.Position);
 
-				pageController.SetViewControllers(new[] { firstViewController }, UIPageViewControllerNavigationDirection.Forward, false, s =>
-				{
-					//var prevPos = Element.Position;
+			    pageController.SetViewControllers(
+			        new[] {firstViewController},
+			        UIPageViewControllerNavigationDirection.Forward,
+			        false,
+			        s =>
+			        {
+			            //var prevPos = Element.Position;
 
-					// To keep the same view visible when inserting in a position <= current (like Android ViewPager)
-					isSwiping = true;
-					if (position <= Element.Position && Source.Count > 1)
-					{
-						Element.Position++;
-						prevPosition = Element.Position;
-					}
-					isSwiping = false;
+			            // To keep the same view visible when inserting in a position <= current (like Android ViewPager)
+			            isSwiping = true;
+			            if (position <= Element.Position && Source.Count > 1)
+			            {
+			                Element.Position++;
+			                _prevPosition = Element.Position;
+			            }
+			            isSwiping = false;
 
-                    SetIndicatorsCurrentPage();
+			            SetIndicatorsCurrentPage();
 
-					//if (position != prevPos)
-						Element.PositionSelected?.Invoke(Element, Element.Position);
-				});
+			            //if (position != prevPos)
+			            Element.PositionSelected?.Invoke(Element, Element.Position);
+			        });
 			}
 		}
 
@@ -577,10 +591,9 @@ namespace CarouselView.FormsPlugin.iOS
 				else
 				{
 					// Remove controller from ChildViewControllers
-					if (ChildViewControllers != null)
-						ChildViewControllers.RemoveAll(c => c.Tag == Source[position]);
+				    ChildViewControllers?.RemoveAll(c => c.Tag == Source[position]);
 
-                    Source.RemoveAt(position);
+				    Source.RemoveAt(position);
 
 					// To remove current page
 					if (position == Element.Position)
@@ -593,48 +606,59 @@ namespace CarouselView.FormsPlugin.iOS
 						if (Element.AnimateTransition)
 							await Task.Delay(100);
 
-						var direction = position == 0 ? UIPageViewControllerNavigationDirection.Forward : UIPageViewControllerNavigationDirection.Reverse;
+						var direction = position == 0 
+                            ? UIPageViewControllerNavigationDirection.Forward
+                            : UIPageViewControllerNavigationDirection.Reverse;
+
 						var firstViewController = CreateViewController(newPos);
 
-						pageController.SetViewControllers(new[] { firstViewController }, direction, Element.AnimateTransition, s =>
-						{
-							isSwiping = true;
-							Element.Position = newPos;
-							isSwiping = false;
+					    pageController.SetViewControllers(
+					        new[] {firstViewController},
+					        direction,
+					        Element.AnimateTransition,
+					        s =>
+					        {
+					            isSwiping = true;
+					            Element.Position = newPos;
+					            isSwiping = false;
 
-							SetIndicatorsCurrentPage();
+					            SetIndicatorsCurrentPage();
 
-							// Invoke PositionSelected as DidFinishAnimating is only called when touch to swipe
-							Element.PositionSelected?.Invoke(Element, Element.Position);
-						});
+					            // Invoke PositionSelected as DidFinishAnimating is only called when touch to swipe
+					            Element.PositionSelected?.Invoke(Element, Element.Position);
+					        });
 					}
 					else
 					{
 						var firstViewController = pageController.ViewControllers[0];
 
-						pageController.SetViewControllers(new[] { firstViewController }, UIPageViewControllerNavigationDirection.Forward, false, s =>
-						{
-							SetIndicatorsCurrentPage();
+					    pageController.SetViewControllers(
+					        new[] {firstViewController},
+					        UIPageViewControllerNavigationDirection.Forward,
+					        false,
+					        s =>
+					        {
+					            SetIndicatorsCurrentPage();
 
-							// Invoke PositionSelected as DidFinishAnimating is only called when touch to swipe
-							Element.PositionSelected?.Invoke(Element, Element.Position);
-						});
+					            // Invoke PositionSelected as DidFinishAnimating is only called when touch to swipe
+					            Element.PositionSelected?.Invoke(Element, Element.Position);
+					        });
 					}
 				}
 
-				prevPosition = Element.Position;
+				_prevPosition = Element.Position;
 			}
 		}
 
-		int prevPosition;
+		int _prevPosition;
 
 		void SetCurrentPage(int position)
 		{
 			if (pageController != null && Element.ItemsSource != null && Element.ItemsSource?.GetCount() > 0)
 			{
 				// Transition direction based on prevPosition
-                var direction = position >= prevPosition ? UIPageViewControllerNavigationDirection.Forward : UIPageViewControllerNavigationDirection.Reverse;
-				prevPosition = position;
+                var direction = position >= _prevPosition ? UIPageViewControllerNavigationDirection.Forward : UIPageViewControllerNavigationDirection.Reverse;
+				_prevPosition = position;
 
                 var firstViewController = CreateViewController(position);
 
@@ -821,8 +845,8 @@ namespace CarouselView.FormsPlugin.iOS
 				if (Element != null)
 				{
 					Element.SizeChanged -= Element_SizeChanged;
-					if (Element.ItemsSource != null && Element.ItemsSource is INotifyCollectionChanged)
-						((INotifyCollectionChanged)Element.ItemsSource).CollectionChanged -= ItemsSource_CollectionChanged;
+					if (Element.ItemsSource is INotifyCollectionChanged changed)
+						changed.CollectionChanged -= ItemsSource_CollectionChanged;
 				}
 
 				Source = null;
