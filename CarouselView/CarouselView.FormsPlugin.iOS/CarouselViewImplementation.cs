@@ -784,6 +784,8 @@ namespace CarouselView.FormsPlugin.iOS
 		{
 			CleanUpPageControl();
 
+		    _viewControllerCache?.Clear();
+
 			if (pageController != null)
 			{
 				/*pageController.DidFinishAnimating -= PageController_DidFinishAnimating;
