@@ -829,18 +829,21 @@ namespace CarouselView.FormsPlugin.iOS
 			        _viewControllerCache.Remove(index);
 			        viewController.Dispose();
 			    }
-                
-                pageController.DidFinishAnimating -= PageController_DidFinishAnimating;
-				pageController.GetPreviousViewController = null;
-				pageController.GetNextViewController = null;
 
-				CleanUpPageController();
+                if (pageController != null)
+                {
+                    pageController.DidFinishAnimating -= PageController_DidFinishAnimating;
+                    pageController.GetPreviousViewController = null;
+                    pageController.GetNextViewController = null;
 
-				pageController.View.RemoveFromSuperview();
-				pageController.View.Dispose();
+                    CleanUpPageController();
 
-				pageController.Dispose();
-				pageController = null;
+                    pageController.View.RemoveFromSuperview();
+                    pageController.View.Dispose();
+
+                    pageController.Dispose();
+                    pageController = null;
+                }
 
 				if (Element != null)
 				{
