@@ -140,7 +140,6 @@ namespace CarouselView.FormsPlugin.iOS
 						isSwiping = true;
 						Element.Position = e.NewStartingIndex;
 						isSwiping = false;
-						SetIndicatorsCurrentPage();
 
                         Element.PositionSelected?.Invoke(Element, Element.Position);
 					});
@@ -251,18 +250,6 @@ namespace CarouselView.FormsPlugin.iOS
 				case "IsSwipingEnabled":
 					SetIsSwipingEnabled();
 					break;
-				case "IndicatorsTintColor":
-					SetIndicatorsTintColor();
-					break;
-				case "CurrentPageIndicatorTintColor":
-					SetCurrentPageIndicatorTintColor();
-					break;
-				case "IndicatorsShape":
-					SetIndicatorsShape();
-					break;
-				case "ShowIndicators":
-					SetIndicators();
-					break;
 				case "ItemsSource":
 					if (Element != null)
 					{
@@ -320,7 +307,6 @@ namespace CarouselView.FormsPlugin.iOS
 				Element.Position = position;
 				_prevPosition = position;
 				isSwiping = false;
-				SetIndicatorsCurrentPage();
 				Element.PositionSelected?.Invoke(Element, position);
 
                 Console.WriteLine("pageController.ChildViewControllers count = " + pageController.ChildViewControllers.Count());
@@ -439,108 +425,7 @@ namespace CarouselView.FormsPlugin.iOS
 			}
 
 			SetNativeControl(pageController.View);
-
-			// INDICATORS
-			SetIndicators();
 		}
-
-		#region indicators
-
-		void SetIndicators()
-		{
-			if (Element.ShowIndicators)
-			{
-				pageControl = new UIPageControl();
-				pageControl.TranslatesAutoresizingMaskIntoConstraints = false;
-				pageControl.Enabled = false;
-				pageController.View.AddSubview(pageControl);
-				var viewsDictionary = NSDictionary.FromObjectsAndKeys(new NSObject[] { pageControl }, new NSObject[] { new NSString("pageControl") });
-				if (Element.Orientation == CarouselViewOrientation.Horizontal)
-				{
-					pageController.View.AddConstraints(NSLayoutConstraint.FromVisualFormat("H:|[pageControl]|", NSLayoutFormatOptions.AlignAllCenterX, new NSDictionary(), viewsDictionary));
-					pageController.View.AddConstraints(NSLayoutConstraint.FromVisualFormat("V:[pageControl]|", 0, new NSDictionary(), viewsDictionary));
-				}
-				else
-				{
-					pageControl.Transform = CGAffineTransform.MakeRotation(3.14159265f / 2);
-
-					pageController.View.AddConstraints(NSLayoutConstraint.FromVisualFormat("[pageControl(==36)]", 0, new NSDictionary(), viewsDictionary));
-					pageController.View.AddConstraints(NSLayoutConstraint.FromVisualFormat("H:[pageControl]|", 0, new NSDictionary(), viewsDictionary));
-					pageController.View.AddConstraints(NSLayoutConstraint.FromVisualFormat("V:|[pageControl]|", NSLayoutFormatOptions.AlignAllTop, new NSDictionary(), viewsDictionary));
-				}
-
-				pageControl.Pages = Count;
-				pageControl.PageIndicatorTintColor = Element.IndicatorsTintColor.ToUIColor();
-				pageControl.CurrentPageIndicatorTintColor = Element.CurrentPageIndicatorTintColor.ToUIColor();
-				pageControl.CurrentPage = Element.Position;
-				SetIndicatorsShape();
-			}
-			else
-			{
-				CleanUpPageControl();
-			}
-		}
-
-		void SetIndicatorsTintColor()
-		{
-			if (pageControl != null)
-			{
-				pageControl.PageIndicatorTintColor = Element.IndicatorsTintColor.ToUIColor();
-				SetIndicatorsShape();
-			}
-		}
-
-		void SetCurrentPageIndicatorTintColor()
-		{
-			if (pageControl != null)
-			{
-				pageControl.CurrentPageIndicatorTintColor = Element.CurrentPageIndicatorTintColor.ToUIColor();
-				SetIndicatorsShape();
-			}
-		}
-
-		void SetIndicatorsCurrentPage()
-		{
-			if (pageControl != null)
-			{
-                pageControl.Pages = Count;
-				pageControl.CurrentPage = Element.Position;
-				SetIndicatorsShape();
-			}
-		}
-
-		void SetIndicatorsShape()
-		{
-			if (pageControl != null)
-			{
-				if (Element.IndicatorsShape == IndicatorsShape.Square)
-				{
-					foreach (var view in pageControl.Subviews)
-					{
-						if (view.Frame.Width == 7)
-						{
-							view.Layer.CornerRadius = 0;
-							var frame = new CGRect(view.Frame.X, view.Frame.Y, view.Frame.Width - 1, view.Frame.Height - 1);
-							view.Frame = frame;
-						}
-					}
-				}
-				else
-				{
-					foreach (var view in pageControl.Subviews)
-					{
-						if (view.Frame.Width == 6)
-						{
-							view.Layer.CornerRadius = 3.5f;
-							var frame = new CGRect(view.Frame.X, view.Frame.Y, view.Frame.Width + 1, view.Frame.Height + 1);
-							view.Frame = frame;
-						}
-					}
-				}
-			}
-		}
-
-		#endregion
 
 		void InsertPage(object item, int position)
 		{
@@ -569,8 +454,6 @@ namespace CarouselView.FormsPlugin.iOS
 			                _prevPosition = Element.Position;
 			            }
 			            isSwiping = false;
-
-			            SetIndicatorsCurrentPage();
 
 			            //if (position != prevPos)
 			            Element.PositionSelected?.Invoke(Element, Element.Position);
@@ -621,9 +504,7 @@ namespace CarouselView.FormsPlugin.iOS
 					            isSwiping = true;
 					            Element.Position = newPos;
 					            isSwiping = false;
-
-					            SetIndicatorsCurrentPage();
-
+                                
 					            // Invoke PositionSelected as DidFinishAnimating is only called when touch to swipe
 					            Element.PositionSelected?.Invoke(Element, Element.Position);
 					        });
@@ -638,8 +519,6 @@ namespace CarouselView.FormsPlugin.iOS
 					        false,
 					        s =>
 					        {
-					            SetIndicatorsCurrentPage();
-
 					            // Invoke PositionSelected as DidFinishAnimating is only called when touch to swipe
 					            Element.PositionSelected?.Invoke(Element, Element.Position);
 					        });
@@ -664,8 +543,6 @@ namespace CarouselView.FormsPlugin.iOS
 
 				pageController.SetViewControllers(new[] { firstViewController }, direction, Element.AnimateTransition, s =>
 				{
-					SetIndicatorsCurrentPage();
-
 					// Invoke PositionSelected as DidFinishAnimating is only called when touch to swipe
 					Element.PositionSelected?.Invoke(Element, position);
 

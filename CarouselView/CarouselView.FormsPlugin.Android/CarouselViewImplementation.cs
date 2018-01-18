@@ -45,7 +45,6 @@ namespace CarouselView.FormsPlugin.Android
 
         private AViews.View _nativeView;
         private ViewPager _viewPager;
-        private CirclePageIndicator _indicators;
         private bool _disposed;
 
         private INotifyCollectionChanged _itemSource;
@@ -158,7 +157,6 @@ namespace CarouselView.FormsPlugin.Android
                     SetPosition();
                     _viewPager.Adapter = CreatePageAdapter();
                     _viewPager.SetCurrentItem(Element.Position, false);
-                    _indicators?.SetViewPager(_viewPager);
                     Element.PositionSelected?.Invoke(Element, Element.Position);
                 }
             }
@@ -221,25 +219,11 @@ namespace CarouselView.FormsPlugin.Android
                 case "IsSwipingEnabled":
                     SetIsSwipingEnabled();
                     break;
-                case "IndicatorsTintColor":
-                    _indicators?.SetFillColor(Element.IndicatorsTintColor.ToAndroid());
-                    break;
-                case "CurrentPageIndicatorTintColor":
-                    _indicators?.SetPageColor(Element.CurrentPageIndicatorTintColor.ToAndroid());
-                    break;
-                case "IndicatorsShape":
-                    _indicators?.SetStyle(Element.IndicatorsShape);
-                    break;
-                case "ShowIndicators":
-                    SetIndicators();
-                    break;
                 case "ItemsSource":
-                    if (Element != null && _viewPager != null)
+                    if (Element != null)
                     {
                         SetPosition();
-                        _viewPager.Adapter = CreatePageAdapter();
-                        _viewPager.SetCurrentItem(Element.Position, false);
-                        _indicators?.SetViewPager(_viewPager);
+
                         Element.PositionSelected?.Invoke(Element, Element.Position);
                         if (Element.ItemsSource is INotifyCollectionChanged sourceCollection)
                         {
@@ -252,13 +236,19 @@ namespace CarouselView.FormsPlugin.Android
                             _itemSource.CollectionChanged += ItemsSource_CollectionChanged;
                         }
                     }
+
+                    if (_viewPager != null)
+                    {
+                        _viewPager.Adapter = CreatePageAdapter();
+                        _viewPager.SetCurrentItem(Element.Position, false);
+                    }
+
                     break;
                 case "ItemTemplate":
                     if (Element != null && _viewPager != null)
                     {
                         _viewPager.Adapter = CreatePageAdapter();
                         _viewPager.SetCurrentItem(Element.Position, false);
-                        _indicators?.SetViewPager(_viewPager);
                         Element.PositionSelected?.Invoke(Element, Element.Position);
                     }
                     break;
@@ -314,8 +304,6 @@ namespace CarouselView.FormsPlugin.Android
                 Element.Position = 0;
             }
             isSwiping = false;
-
-            _indicators.mSnapPage = Element.Position;
         }
 
         PageAdapter CreatePageAdapter() => new PageAdapter(((FormsAppCompatActivity)_context).SupportFragmentManager, Element);
@@ -371,37 +359,7 @@ namespace CarouselView.FormsPlugin.Android
 
             SetNativeControl(_nativeView);
 
-            // INDICATORS
-            _indicators = _nativeView.FindViewById<CirclePageIndicator>(Resource.Id.indicator);
-            SetIndicators();
-
             return true;
-        }
-
-        void SetIndicators()
-        {
-            if (Element.ShowIndicators)
-            {
-                SetPosition();
-
-                _indicators.SetViewPager(_viewPager);
-
-                // IndicatorsTintColor BP
-                _indicators.SetFillColor(Element.IndicatorsTintColor.ToAndroid());
-
-                // CurrentPageIndicatorTintColor BP
-                _indicators.SetPageColor(Element.CurrentPageIndicatorTintColor.ToAndroid());
-
-                // IndicatorsShape BP
-                _indicators.SetStyle(Element.IndicatorsShape); // Rounded or Squared
-            }
-            else
-            {
-                _indicators.RemoveAllViews();
-            }
-
-            // ShowIndicators BP
-            _indicators.Visibility = Element.ShowIndicators ? AViews.ViewStates.Visible : AViews.ViewStates.Gone;
         }
 
         void InsertPage(object item, int position)
@@ -456,7 +414,6 @@ namespace CarouselView.FormsPlugin.Android
                 Source.RemoveAt(position);
 
                 _viewPager.Adapter.NotifyDataSetChanged();
-                _indicators?.SetViewPager(_viewPager);
 
                 isSwiping = false;
             }
@@ -572,12 +529,6 @@ namespace CarouselView.FormsPlugin.Android
         {
             if (disposing && !_disposed)
             {
-				if (_indicators != null)
-				{
-					_indicators.Dispose();
-					_indicators = null;
-				}
-
 				if (_viewPager != null)
 				{
 					_viewPager.PageSelected -= ViewPager_PageSelected;
