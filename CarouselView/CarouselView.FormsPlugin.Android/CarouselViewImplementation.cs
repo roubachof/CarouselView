@@ -189,6 +189,8 @@ namespace CarouselView.FormsPlugin.Android
                 Element_SizeChanged(Element, null);
 
             base.OnAttachedToWindow();
+
+            _viewPager?.RequestLayout();
         }
 
         protected override void OnElementPropertyChanged(object sender, PropertyChangedEventArgs e)
