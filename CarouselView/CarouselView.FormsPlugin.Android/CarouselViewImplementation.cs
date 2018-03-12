@@ -16,6 +16,7 @@ using Android.Support.V4.App;
 using Android.OS;
 using Android.Runtime;
 using Android.Content;
+using Java.Lang;
 
 /*
  * Save state in Android:
@@ -367,27 +368,23 @@ namespace CarouselView.FormsPlugin.Android
         void InsertPage(object item, int position)
         {
             // Fix for #168 Android NullReferenceException
-            var Source = ((PageAdapter)_viewPager?.Adapter)?.Source;
+            var adapterSource = ((PageAdapter)_viewPager?.Adapter)?.Source;
 
-            if (Element != null && _viewPager != null && Source != null)
+            if (Element != null && _viewPager != null && adapterSource != null)
             {
-                Source.Insert(position, item);
-
-                //var prevPos = Element.Position;
-
+                adapterSource.Insert(position, item);
                 _viewPager.Adapter.NotifyDataSetChanged();
 
-                //if (position <= prevPos)
-                    Element.PositionSelected?.Invoke(Element, Element.Position);
+                Element.PositionSelected?.Invoke(Element, Element.Position);
             }
         }
 
         // Android ViewPager is the most complicated piece of code ever :)
         async Task RemovePage(int position)
         {
-            var Source = ((PageAdapter)_viewPager?.Adapter).Source;
+            var adapterSource = ((PageAdapter)_viewPager?.Adapter)?.Source;
 
-            if (Element != null && _viewPager != null && Source != null && Source?.Count > 0)
+            if (Element != null && _viewPager != null && adapterSource != null && adapterSource.Count > 0)
             {
 
                 isSwiping = true;
@@ -413,8 +410,7 @@ namespace CarouselView.FormsPlugin.Android
                     Element.Position = newPos;
                 }
 
-                Source.RemoveAt(position);
-
+                adapterSource.RemoveAt(position);
                 _viewPager.Adapter.NotifyDataSetChanged();
 
                 isSwiping = false;
@@ -436,6 +432,17 @@ namespace CarouselView.FormsPlugin.Android
 
         class CarouselItemFragment : Fragment
         {
+            public CarouselItemFragment(IntPtr javaReference, JniHandleOwnership transfer)
+                : base(javaReference, transfer)
+            {
+            }
+
+            public CarouselItemFragment()
+            {
+            }
+
+            public bool IsDisposed { get; private set; }
+
             public AViews.ViewGroup NativeView { get; set; }
 
             public override AViews.View OnCreateView(
@@ -446,6 +453,12 @@ namespace CarouselView.FormsPlugin.Android
                 base.OnCreateView(inflater, container, savedInstanceState);
 
                 return NativeView;
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                IsDisposed = true;
+                base.Dispose(disposing);
             }
         }    
 
@@ -517,14 +530,33 @@ namespace CarouselView.FormsPlugin.Android
                 formsView.Parent = this._element;
 
                 var nativeConverted = formsView.ToAndroid(_element, new Rectangle(0, 0, _element.Width, _element.Height));
+                nativeConverted.Tag = new Tag { BindingContext = bindingContext }; //position;
 
                 return new CarouselItemFragment() { NativeView = nativeConverted };
             }
 
-            public override void DestroyItem(AViews.ViewGroup container, int position, Java.Lang.Object @object)
-            {
-                var view = (CarouselItemFragment)@object;
-            }            
+            //public override void DestroyItem(AViews.ViewGroup container, int position, Java.Lang.Object @object)
+            //{
+            //    base.DestroyItem(container, position, @object);
+
+            //    var pager = (ViewPager)container;
+            //    var fragment = (CarouselItemFragment)@object;
+            //    // pager.RemoveView(fragment.View);
+            //    fragment.Dispose();
+            //}
+
+            //public override int GetItemPosition(Java.Lang.Object @object)
+            //{
+            //    var fragment = (CarouselItemFragment)@object;
+            //    if (@object == null || fragment.IsDisposed || fragment.NativeView == null)
+            //    {
+            //        return PositionNone;
+            //    }
+
+            //    var tag = (Tag)(fragment.NativeView).Tag;
+            //    var position = Source.IndexOf(tag.BindingContext);
+            //    return position != -1 ? position : PositionNone;
+            //}
         }
 
         protected override void Dispose(bool disposing)
@@ -556,7 +588,7 @@ namespace CarouselView.FormsPlugin.Android
             {
                 base.Dispose(disposing);
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 Console.WriteLine(ex.Message);
                 return;
