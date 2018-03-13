@@ -16,9 +16,9 @@ namespace CarouselView.FormsPlugin.Android
 {
     public class ItemContainer : FrameLayout
     {
-        private readonly View _element;
+        private View _element;
 
-        private readonly CarouselViewControl _parent;
+        private CarouselViewControl _parent;
 
         protected ItemContainer(IntPtr javaReference, JniHandleOwnership transfer)
             : base(javaReference, transfer)
@@ -43,9 +43,17 @@ namespace CarouselView.FormsPlugin.Android
 
         protected override void Dispose(bool disposing)
         {
-            base.Dispose(disposing);
+            if (_parent != null)
+            {
+                _parent.SizeChanged -= OnParentSizeChanged;
+            }
 
-            _element.SizeChanged -= OnParentSizeChanged;
+            RemoveAllViews();
+
+            _element = null;
+            _parent = null;
+
+            base.Dispose(disposing);
         }
 
         private void OnParentSizeChanged(object sender, EventArgs e)
@@ -67,6 +75,12 @@ namespace CarouselView.FormsPlugin.Android
             _element.Layout(new Rectangle(0, 0, width, height));
             Layout(0, 0, (int)_element.WidthRequest, (int)_element.HeightRequest);
         }
+
+        //protected override void JavaFinalize()
+        //{
+        //    System.Diagnostics.Debug.WriteLine($">>> JavaFinalize <<< ItemContainer");
+        //    base.JavaFinalize();
+        //}
     }
 
     public static class ViewExtensions

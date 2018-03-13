@@ -130,8 +130,9 @@ namespace CarouselView.FormsPlugin.iOS
 			{
 				if (Element != null && pageController != null && Source != null)
 				{
+				    object movedItem = Source[e.OldStartingIndex];
 					Source.RemoveAt(e.OldStartingIndex);
-					Source.Insert(e.NewStartingIndex, e.OldItems[e.OldStartingIndex]);
+					Source.Insert(e.NewStartingIndex, movedItem);
 
 					var firstViewController = CreateViewController(e.NewStartingIndex);
 
@@ -154,10 +155,9 @@ namespace CarouselView.FormsPlugin.iOS
 				if (Element != null && pageController != null && Source != null)
 				{
 					// Remove controller from ChildViewControllers
-					if (ChildViewControllers != null)
-						ChildViewControllers.RemoveAll(c => c.Tag == Source[e.OldStartingIndex]);
-                    
-					Source[e.OldStartingIndex] = e.NewItems[e.NewStartingIndex];
+				    ChildViewControllers?.RemoveAll(c => c.Tag == Source[e.OldStartingIndex]);
+
+				    Source[e.OldStartingIndex] = e.NewItems[0];
 
 					var firstViewController = CreateViewController(Element.Position);
 
