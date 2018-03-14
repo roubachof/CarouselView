@@ -107,6 +107,51 @@ namespace CarouselView.FormsPlugin.iOS
             }
 		}
 
+	    private void ResetSource()
+	    {
+	        Source = Element.ItemsSource != null ? new List<object>(Element.ItemsSource.GetList()) : null;
+
+	        if (Source != null)
+	        {
+	            if (_viewControllerCache == null)
+	            {
+	                _viewControllerCache = new IndexedCache<ViewContainer>(Source.Count);
+	            }
+	            else
+	            {
+	                _viewControllerCache.Reset(Source.Count);
+	            }
+	        }
+	    }
+
+	    private void AddSourceItem(int index, object item)
+	    {
+	        Source.Insert(index, item);
+	        _viewControllerCache.InsertHolder(index);
+	    }
+
+	    private void RemoveSource(int index)
+	    {
+	        Source.RemoveAt(index);
+	        _viewControllerCache.Remove(index);
+	    }
+
+	    private void MoveSourceItem(int fromIndex, int toIndex)
+	    {
+	        object movedItem = Source[fromIndex];
+	        Source.RemoveAt(fromIndex);
+	        Source.Insert(toIndex, movedItem);
+
+	        _viewControllerCache.Move(fromIndex, toIndex);
+	    }
+
+	    private void ReplaceSourceItem(int index, object item)
+	    {
+	        Source[index] = item;
+
+	        _viewControllerCache.Invalidate(index);
+	    }
+
 		async void ItemsSource_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
 			// NewItems contains the item that was added.
@@ -130,9 +175,7 @@ namespace CarouselView.FormsPlugin.iOS
 			{
 				if (Element != null && pageController != null && Source != null)
 				{
-				    object movedItem = Source[e.OldStartingIndex];
-					Source.RemoveAt(e.OldStartingIndex);
-					Source.Insert(e.NewStartingIndex, movedItem);
+				    MoveSourceItem(e.OldStartingIndex, e.NewStartingIndex);
 
 					var firstViewController = CreateViewController(e.NewStartingIndex);
 
@@ -157,7 +200,7 @@ namespace CarouselView.FormsPlugin.iOS
 					// Remove controller from ChildViewControllers
 				    ChildViewControllers?.RemoveAll(c => c.Tag == Source[e.OldStartingIndex]);
 
-				    Source[e.OldStartingIndex] = e.NewItems[0];
+				    ReplaceSourceItem(e.OldStartingIndex, e.NewItems[0]);
 
 					var firstViewController = CreateViewController(Element.Position);
 
@@ -351,7 +394,7 @@ namespace CarouselView.FormsPlugin.iOS
                 pageController.View.ClipsToBounds = true;
             }
 
-			Source = Element.ItemsSource != null ? new List<object>(Element.ItemsSource.GetList()) : null;
+		    ResetSource();
 
 			// BackgroundColor BP
 			pageController.View.BackgroundColor = Element.BackgroundColor.ToUIColor();
@@ -431,7 +474,7 @@ namespace CarouselView.FormsPlugin.iOS
 		{
 			if (Element != null && pageController != null && Source != null)
 			{
-				Source.Insert(position, item);
+			    AddSourceItem(position, item);
 
                 // Because we maybe inserting into an empty PageController
 			    var firstViewController = pageController.ViewControllers.Any()
@@ -468,15 +511,16 @@ namespace CarouselView.FormsPlugin.iOS
 				// To remove latest page, rebuild pageController or the page wont disappear
 				if (Source.Count == 1)
 				{
-					Source.RemoveAt(position);
+				    RemoveSource(position);
+
 					SetNativeView();
 				}
 				else
 				{
 					// Remove controller from ChildViewControllers
 				    ChildViewControllers?.RemoveAll(c => c.Tag == Source[position]);
-
-				    Source.RemoveAt(position);
+				    
+				    RemoveSource(position);
 
 					// To remove current page
 					if (position == Element.Position)
@@ -551,12 +595,12 @@ namespace CarouselView.FormsPlugin.iOS
 			}
 		}
 
-	    private readonly Dictionary<int, ViewContainer> _viewControllerCache = new Dictionary<int, ViewContainer>();
+	    private IndexedCache<ViewContainer> _viewControllerCache;
 
 		#region adapter
 		UIViewController CreateViewController(int index)
 		{
-		    if (_viewControllerCache.TryGetValue(index, out ViewContainer viewContainer))
+		    if (_viewControllerCache.TryGetItem(index, out ViewContainer viewContainer))
 		    {
                 return viewContainer;
 		    }
@@ -634,7 +678,7 @@ namespace CarouselView.FormsPlugin.iOS
 
 		    var viewController = new ViewContainer(nativeConverted, formsView, Element, bindingContext);
 
-		    _viewControllerCache.Add(index, viewController);
+		    _viewControllerCache.AddOrReplace(index, viewController);
 
 		    // Only happens when ItemsSource is List<View>
             if (ChildViewControllers != null)
@@ -702,12 +746,7 @@ namespace CarouselView.FormsPlugin.iOS
 		{
 			if (disposing && !_disposed)
 			{
-			    foreach (var index in _viewControllerCache.Keys.ToList())
-			    {
-			        var viewController = _viewControllerCache[index];
-			        _viewControllerCache.Remove(index);
-			        viewController.Dispose();
-			    }
+			    _viewControllerCache?.Clear();
 
                 if (pageController != null)
                 {
