@@ -332,7 +332,7 @@ namespace CarouselView.FormsPlugin.Android
                 }
 
                 _viewPager = (ViewPager)((AViews.ViewGroup)_nativeView).GetChildAt(0);
-                _viewPager.OffscreenPageLimit = 8;
+                _viewPager.OffscreenPageLimit = 2;
 
                 _orientationChanged = false;
             }
