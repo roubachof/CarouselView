@@ -41,6 +41,9 @@
     <WarningLevel>4</WarningLevel>
     <DocumentationFile>bin\Release\CarouselView.FormsPlugin.Android.XML</DocumentationFile>
   </PropertyGroup>
+  <PropertyGroup>
+    <UseShortFileNames>True</UseShortFileNames>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="Mono.Android" />
     <Reference Include="mscorlib" />

@@ -38,6 +38,9 @@
     <WarningLevel>4</WarningLevel>
     <DocumentationFile>bin\Release\CarouselView.FormsPlugin.Abstractions.XML</DocumentationFile>
   </PropertyGroup>
+  <PropertyGroup>
+    <UseShortFileNames>True</UseShortFileNames>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Include="CarouselViewControl.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

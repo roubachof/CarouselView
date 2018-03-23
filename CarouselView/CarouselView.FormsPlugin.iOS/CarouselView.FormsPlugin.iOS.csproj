@@ -37,6 +37,9 @@
     <CodesignKey>iPhone Developer</CodesignKey>
     <DocumentationFile>bin\iPhone\Release\CarouselView.FormsPlugin.iOS.XML</DocumentationFile>
   </PropertyGroup>
+  <PropertyGroup>
+    <UseShortFileNames>True</UseShortFileNames>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Include="CarouselViewImplementation.cs" />
     <Compile Include="IndexedCache.cs" />
