@@ -610,16 +610,20 @@ namespace CarouselView.FormsPlugin.Android
                 base.DestroyItem(container, position, @object);
 
                 var fragment = (CarouselItemFragment)@object;
-                var tag = (Tag)(fragment.NativeView).Tag;
+                var tag = (Tag)(fragment?.NativeView)?.Tag;
 
-                System.Diagnostics.Debug.WriteLine($"Fragment Adapter::Destroying item n°{position}, formsView: {tag.FormsView}");
-
-                if (tag.FormsView is IDisposable disposableView)
+                if (tag != null)
                 {
-                    disposableView.Dispose();
+                    System.Diagnostics.Debug.WriteLine(
+                        $"Fragment Adapter::Destroying item n°{position}, formsView: {tag.FormsView}");
+
+                    if (tag.FormsView is IDisposable disposableView)
+                    {
+                        disposableView.Dispose();
+                    }
                 }
 
-                fragment.Dispose();
+                fragment?.Dispose();
             }
 
             public override int GetItemPosition(Java.Lang.Object @object)
