@@ -527,7 +527,7 @@ namespace CarouselView.FormsPlugin.Android
             //}
         }    
 
-        public class PageAdapter : FragmentStatePagerAdapter
+        public class PageAdapter : FragmentItemIdStatePagerAdapter
         {
             private readonly CarouselViewControl _element;
             
@@ -549,6 +549,11 @@ namespace CarouselView.FormsPlugin.Android
             public List<object> Source => _source;
 
             public override int Count => _source?.Count ?? 0;
+
+            public override long GetItemId(int position)
+            {
+                return _source[position].GetHashCode();
+            }
 
             public override Fragment GetItem(int position)
             {
