@@ -75,7 +75,7 @@ public abstract class FragmentItemIdStatePagerAdapter : PagerAdapter {
     private Dictionary<Fragment, long> mFragmentToItemIdMap = new Dictionary<Fragment, long>();
     private Dictionary<long, Fragment> mItemIdToFragmentMap = new Dictionary<long, Fragment>();
     private HashSet<Fragment> mUnusedRestoredFragments = new HashSet<Fragment>();
-    private Fragment mCurrentPrimaryItem = null;
+    private JniWeakReference<Fragment> mWeakCurrentPrimaryItem = null;
 
     protected FragmentItemIdStatePagerAdapter(IntPtr javaReference, JniHandleOwnership transfer)
         : base(javaReference, transfer)
@@ -165,6 +165,8 @@ public abstract class FragmentItemIdStatePagerAdapter : PagerAdapter {
     
     public override void SetPrimaryItem(ViewGroup container, int position, Java.Lang.Object @object) {
         Fragment fragment = (Fragment)@object;
+
+        var mCurrentPrimaryItem = mWeakCurrentPrimaryItem?.GetTarget();
         if (fragment != mCurrentPrimaryItem) {
             if (mCurrentPrimaryItem != null) {
                 mCurrentPrimaryItem.SetMenuVisibility(false);
@@ -174,7 +176,7 @@ public abstract class FragmentItemIdStatePagerAdapter : PagerAdapter {
                 fragment.SetMenuVisibility(true);
                 fragment.UserVisibleHint = true;
             }
-            mCurrentPrimaryItem = fragment;
+            mWeakCurrentPrimaryItem = new JniWeakReference<Fragment>(fragment);
         }
     }
 
