@@ -124,7 +124,7 @@ namespace CarouselView.FormsPlugin.Android
             // NewStartingIndex contains the index where the item was moved to.
             if (e.Action == NotifyCollectionChangedAction.Move)
             {
-                var source = ((PageAdapter)_viewPager?.Adapter)?.Source;
+                var source = ((IPageAdapter)_viewPager?.Adapter)?.Source;
 
                 if (Element != null && _viewPager != null && source != null)
                 {
@@ -142,7 +142,7 @@ namespace CarouselView.FormsPlugin.Android
             // then they contain the index where the item was replaced.
             if (e.Action == NotifyCollectionChangedAction.Replace)
             {
-                var source = ((PageAdapter)_viewPager?.Adapter)?.Source;
+                var source = ((IPageAdapter)_viewPager?.Adapter)?.Source;
 
                 if (Element != null && _viewPager != null && source != null)
                 {
@@ -180,6 +180,8 @@ namespace CarouselView.FormsPlugin.Android
                 {
                     Element.PositionSelected?.Invoke(Element, Element.Position);
                 }
+
+                _nativeView?.RequestLayout();
             }
         }
 
@@ -310,7 +312,15 @@ namespace CarouselView.FormsPlugin.Android
             isSwiping = false;
         }
 
-        PageAdapter CreatePageAdapter() => new PageAdapter(((FormsAppCompatActivity)_context).SupportFragmentManager, Element);
+        PagerAdapter CreatePageAdapter()
+        {
+            if (Element.IsFixed)
+            {
+                return new StaticPagerAdapter(_context, Element);
+            }
+
+            return new FragmentPageAdapter(_context, ((FormsAppCompatActivity)_context).SupportFragmentManager, Element);
+        }
 
         private bool SetNativeView()
         {
@@ -369,7 +379,7 @@ namespace CarouselView.FormsPlugin.Android
         void InsertPage(object item, int position)
         {
             // Fix for #168 Android NullReferenceException
-            var adapterSource = ((PageAdapter)_viewPager?.Adapter)?.Source;
+            var adapterSource = ((IPageAdapter)_viewPager?.Adapter)?.Source;
 
             if (Element != null && _viewPager != null && adapterSource != null)
             {
@@ -383,7 +393,7 @@ namespace CarouselView.FormsPlugin.Android
         // Android ViewPager is the most complicated piece of code ever :)
         async Task RemovePage(int position)
         {
-            var adapterSource = ((PageAdapter)_viewPager?.Adapter)?.Source;
+            var adapterSource = ((IPageAdapter)_viewPager?.Adapter)?.Source;
 
             if (Element != null && _viewPager != null && adapterSource != null && adapterSource.Count > 0)
             {
@@ -495,7 +505,7 @@ namespace CarouselView.FormsPlugin.Android
                 AViews.ViewGroup container,
                 Bundle savedInstanceState)
             {
-                base.OnCreateView(inflater, container, savedInstanceState);
+                // base.OnCreateView(inflater, container, savedInstanceState);
 
                 return NativeView;
             }            
@@ -525,34 +535,41 @@ namespace CarouselView.FormsPlugin.Android
             //    System.Diagnostics.Debug.WriteLine($">>> JavaFinalize <<< CarouselItemFragment");
             //    base.JavaFinalize();
             //}
-        }    
+        }
 
-        public class PageAdapter : FragmentItemIdStatePagerAdapter
+        public interface IPageAdapter
+        {
+            List<object> Source { get; }
+        }
+
+        public class FragmentPageAdapter : FragmentItemIdStatePagerAdapter, IPageAdapter
         {
             private readonly CarouselViewControl _element;
-            
-            // A local copy of ItemsSource so we can use CollectionChanged events
-            private readonly List<object> _source;
 
-            public PageAdapter(IntPtr javaReference, JniHandleOwnership transfer)
+            private readonly Context _context;
+
+            public FragmentPageAdapter(IntPtr javaReference, JniHandleOwnership transfer)
                 : base(javaReference, transfer)
             {
             }
 
-            public PageAdapter(FragmentManager fm, CarouselViewControl element)
+            public FragmentPageAdapter(Context context, FragmentManager fm, CarouselViewControl element)
                 :base(fm)
             {
+                System.Diagnostics.Debug.WriteLine("FragmentPageAdapter:: building");
+
                 _element = element;
-                _source = _element.ItemsSource != null ? new List<object>(_element.ItemsSource.GetList()) : null;
+                Source = _element.ItemsSource != null ? new List<object>(_element.ItemsSource.GetList()) : null;
+                _context = context;
             }
 
-            public List<object> Source => _source;
+            public List<object> Source { get; }
 
-            public override int Count => _source?.Count ?? 0;
+            public override int Count => Source?.Count ?? 0;
 
             public override long GetItemId(int position)
             {
-                return _source[position].GetHashCode();
+                return Source[position].GetHashCode();
             }
 
             public override Fragment GetItem(int position)
@@ -563,8 +580,136 @@ namespace CarouselView.FormsPlugin.Android
 
                 object bindingContext = null;
 
-                if (_source != null && _source?.Count > 0)
-                    bindingContext = _source.ElementAt(position);
+                if (Source != null && Source?.Count > 0)
+                    bindingContext = Source.ElementAt(position);
+
+                // Support for List<DataTemplate> as ItemsSource
+                switch (bindingContext)
+                {
+                    case DataTemplate dt:
+                        System.Diagnostics.Debug.WriteLine($"Fragment Adapter::Create view from DataTemplate");
+                        formsView = (View)dt.CreateContent();
+                        break;
+
+                    case View view:
+                        System.Diagnostics.Debug.WriteLine($"Fragment Adapter::Create view from forms View");
+                        formsView = view;
+                        break;
+
+                    default:
+                        IReadOnlyList<string> deviceFlags = Device.Flags;
+
+                        if (deviceFlags == null)
+                        {
+                            Device.SetFlags(new List<string>());
+                        }                        
+
+                        if (_element.ItemTemplate is DataTemplateSelector selector)
+                            formsView = (View)selector.SelectTemplate(bindingContext, _element).CreateContent();
+                        else
+                            formsView = (View)_element.ItemTemplate.CreateContent();
+
+                        if (deviceFlags == null)
+                        {
+                            Device.SetFlags(deviceFlags);
+                        }
+
+                        formsView.BindingContext = bindingContext;
+                        break;
+                }
+
+                System.Diagnostics.Debug.WriteLine($"Fragment Adapter::Binding view {formsView} to context {bindingContext}");
+                formsView.Parent = this._element;
+
+                var nativeConverted = formsView.ToAndroid(_context, _element, new Rectangle(0, 0, _element.Width, _element.Height));
+                nativeConverted.Tag = new Tag { FormsView = formsView }; //position;
+
+                System.Diagnostics.Debug.WriteLine($"Fragment Adapter::android view: {nativeConverted}");
+
+                return new CarouselItemFragment() { NativeView = nativeConverted };
+            }
+
+            public override void DestroyItem(AViews.ViewGroup container, int position, Java.Lang.Object @object)
+            {
+                base.DestroyItem(container, position, @object);
+
+                var fragment = (CarouselItemFragment)@object;
+                var tag = (Tag)(fragment?.NativeView)?.Tag;
+
+                if (tag != null)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        $"Fragment Adapter::Destroying item n°{position}, formsView: {tag.FormsView}");
+
+                    if (tag.FormsView is IDisposable disposableView)
+                    {
+                        disposableView.Dispose();
+                    }
+                }
+
+                fragment?.Dispose();
+            }
+
+            public override int GetItemPosition(Java.Lang.Object @object)
+            {
+                var fragment = (CarouselItemFragment)@object;
+
+                if (@object == null || fragment.IsDisposed || fragment.NativeView == null)
+                {
+                    System.Diagnostics.Debug.WriteLine(
+                        "Fragment Adapter::GetItemPosition => null");
+                    return PositionNone;
+                }
+
+                var tag = (Tag)(fragment.NativeView).Tag;
+                var position = Source.IndexOf(tag.FormsView.BindingContext);
+
+                System.Diagnostics.Debug.WriteLine(
+                    $"Fragment Adapter::GetItemPosition fragment {position}, formsView: {tag.FormsView}");
+
+                return position != -1 ? position : PositionNone;
+            }
+        }
+
+        public class StaticPagerAdapter : PagerAdapter, IPageAdapter
+        {
+            private readonly CarouselViewControl _element;
+
+            private readonly Context _context;
+
+            public StaticPagerAdapter(IntPtr javaReference, JniHandleOwnership transfer)
+                : base(javaReference, transfer)
+            {
+            }
+
+            public StaticPagerAdapter(Context context, CarouselViewControl element)
+            {
+                System.Diagnostics.Debug.WriteLine("StaticPagerAdapter:: building");
+
+                _element = element;
+                Source = _element.ItemsSource != null ? new List<object>(_element.ItemsSource.GetList()) : null;
+                _context = context;
+            }
+
+            public List<object> Source { get; }
+
+            public override int Count => Source?.Count ?? 0;
+
+            public override bool IsViewFromObject(AViews.View view, Java.Lang.Object @object)
+            {
+                return view == @object;
+            }
+
+            public override Java.Lang.Object InstantiateItem(AViews.ViewGroup container, int position)
+            {
+                System.Diagnostics.Debug.WriteLine($"Fragment Adapter::Getting item n°{position}");
+
+                View formsView = null;
+
+                object bindingContext = null;
+
+                if (Source != null && Source?.Count > 0)
+                    bindingContext = Source.ElementAt(position);
 
                 // Support for List<DataTemplate> as ItemsSource
                 switch (bindingContext)
@@ -597,25 +742,29 @@ namespace CarouselView.FormsPlugin.Android
                             Device.SetFlags(deviceFlags);
                         }
 
-                        System.Diagnostics.Debug.WriteLine($"Fragment Adapter::Binding view {formsView} to context {bindingContext}");
-                        formsView.BindingContext = bindingContext;
                         break;
                 }
 
+                System.Diagnostics.Debug.WriteLine($"Fragment Adapter::Binding view {formsView} to context {bindingContext}");
+                formsView.BindingContext = bindingContext;
                 formsView.Parent = this._element;
 
-                var nativeConverted = formsView.ToAndroid(_element, new Rectangle(0, 0, _element.Width, _element.Height));
+                var nativeConverted = formsView.ToAndroid(_context, _element, new Rectangle(0, 0, _element.Width, _element.Height));
                 nativeConverted.Tag = new Tag { FormsView = formsView }; //position;
 
-                return new CarouselItemFragment() { NativeView = nativeConverted };
+                System.Diagnostics.Debug.WriteLine($"Fragment Adapter::android view: {nativeConverted}");
+
+                var pager = (ViewPager)container;
+                pager.AddView(nativeConverted);
+                return nativeConverted;
             }
 
             public override void DestroyItem(AViews.ViewGroup container, int position, Java.Lang.Object @object)
             {
                 base.DestroyItem(container, position, @object);
 
-                var fragment = (CarouselItemFragment)@object;
-                var tag = (Tag)(fragment?.NativeView)?.Tag;
+                var view = (AViews.View)@object;
+                var tag = (Tag)view.Tag;
 
                 if (tag != null)
                 {
@@ -628,19 +777,28 @@ namespace CarouselView.FormsPlugin.Android
                     }
                 }
 
-                fragment?.Dispose();
+                var pager = (ViewPager)container;
+                pager.RemoveView(view);
+                view.Dispose();
             }
 
             public override int GetItemPosition(Java.Lang.Object @object)
             {
                 var fragment = (CarouselItemFragment)@object;
+
                 if (@object == null || fragment.IsDisposed || fragment.NativeView == null)
                 {
+                    System.Diagnostics.Debug.WriteLine(
+                        "Fragment Adapter::GetItemPosition => null");
                     return PositionNone;
                 }
 
                 var tag = (Tag)(fragment.NativeView).Tag;
                 var position = Source.IndexOf(tag.FormsView.BindingContext);
+
+                System.Diagnostics.Debug.WriteLine(
+                    $"Fragment Adapter::GetItemPosition fragment {position}, formsView: {tag.FormsView}");
+
                 return position != -1 ? position : PositionNone;
             }
         }

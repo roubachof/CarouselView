@@ -1,5 +1,6 @@
 ﻿using System;
 
+using Android.Content;
 using Android.Runtime;
 using Android.Support.V4.View;
 using Android.Views;
@@ -25,8 +26,8 @@ namespace CarouselView.FormsPlugin.Android
         {
         }        
 
-        public ItemContainer(ViewGroup nativeView, View element, CarouselViewControl parent, Rectangle size)
-            : base(Forms.Context)
+        public ItemContainer(Context context, ViewGroup nativeView, View element, CarouselViewControl parent, Rectangle size)
+            : base(context)
         {
             var nativeView1 = nativeView;
             _element = element;
@@ -58,6 +59,8 @@ namespace CarouselView.FormsPlugin.Android
 
         private void OnParentSizeChanged(object sender, EventArgs e)
         {
+            System.Diagnostics.Debug.WriteLine($"ItemContainer::OnParentSizeChanged( {_parent.Width}, {_parent.Height} )");
+
             int width = (int)_parent.Width;
             int height = (int)_parent.Height;
 
@@ -66,6 +69,8 @@ namespace CarouselView.FormsPlugin.Android
 
         private void Layout(int width, int height)
         {
+            System.Diagnostics.Debug.WriteLine($"ItemContainer::Layout( {width}, {height} )");
+
             LayoutParameters = new ViewPager.LayoutParams
                 {
                     Width = width,
@@ -85,22 +90,19 @@ namespace CarouselView.FormsPlugin.Android
 
     public static class ViewExtensions
     {
-        public static ViewGroup ToAndroid(this Xamarin.Forms.View view, CarouselViewControl parent, Rectangle size)
+        public static ViewGroup ToAndroid(this View view, Context context, CarouselViewControl parent, Rectangle size)
         {
-			//var vRenderer = RendererFactory.GetRenderer (view);
+            if (Platform.GetRenderer(view) == null)
+            {
+                Platform.SetRenderer(view, Platform.CreateRendererWithContext(view, context));
+            }
 
-			//if (Platform.GetRenderer(view) == null)
-				Platform.SetRenderer(view, Platform.CreateRenderer(view));
-			var vRenderer = Platform.GetRenderer(view);
+            var vRenderer = Platform.GetRenderer(view);            
+            var viewGroup = (ViewGroup)vRenderer.View;
             
-            var viewGroup = vRenderer.ViewGroup;
-
             vRenderer.Tracker.UpdateLayout ();
-            //var layoutParams = new ViewGroup.LayoutParams ((int)size.Width, (int)size.Height);
-            //viewGroup.LayoutParameters = layoutParams;
-            //view.Layout (size);
-            //viewGroup.Layout (0, 0, (int)view.WidthRequest, (int)view.HeightRequest);
-            return new ItemContainer(viewGroup, view, parent, size);
+
+            return new ItemContainer(context, viewGroup, view, parent, size);
         }
     }
 }

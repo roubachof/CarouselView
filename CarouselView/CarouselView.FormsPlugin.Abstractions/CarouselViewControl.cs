@@ -86,6 +86,8 @@ namespace CarouselView.FormsPlugin.Abstractions
 
         public EventHandler<int> PositionSelected;
 
+        public bool IsFixed { get; set; }
+
         public CarouselViewOrientation Orientation
         {
             get => (CarouselViewOrientation) GetValue(OrientationProperty);
