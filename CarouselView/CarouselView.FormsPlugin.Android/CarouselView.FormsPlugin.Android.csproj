@@ -46,7 +46,7 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Xml" />
-    <Reference Include="Mono.Android.Export" />    
+    <Reference Include="Mono.Android.Export" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CarouselViewImplementation.cs" />
@@ -72,13 +72,11 @@
       <Name>CarouselView.FormsPlugin.Abstractions</Name>
     </ProjectReference>
   </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="Xamarin.Forms">
-      <Version>3.4.0.1009999</Version>
+      <Version>3.6.0.220655</Version>
     </PackageReference>
   </ItemGroup>
-
   <ItemGroup>
     <AndroidResource Include="Resources\layout\horizontal_viewpager.xml" />
     <AndroidResource Include="Resources\values\vpi__attrs.xml" />
@@ -87,5 +85,4 @@
     <AndroidResource Include="Resources\values\vpi__styles.xml" />
     <AndroidResource Include="Resources\layout\vertical_viewpager.xml" />
   </ItemGroup>
-  
 </Project>

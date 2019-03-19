@@ -5,12 +5,12 @@ using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using CarouselView.FormsPlugin.Abstractions;
-using CarouselView.FormsPlugin.iOS;
 using CoreGraphics;
-using Foundation;
 using UIKit;
 using Xamarin.Forms;
 using Xamarin.Forms.Platform.iOS;
+
+using CarouselViewRenderer = CarouselView.FormsPlugin.iOS.CarouselViewRenderer;
 
 /*
  * Significant Memory Leak for iOS when using custom layout for page content #125

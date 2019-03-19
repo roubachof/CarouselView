@@ -18,6 +18,8 @@ using Android.Runtime;
 using Android.Content;
 using Java.Lang;
 
+using CarouselViewRenderer = CarouselView.FormsPlugin.Android.CarouselViewRenderer;
+
 /*
  * Save state in Android:
  * 

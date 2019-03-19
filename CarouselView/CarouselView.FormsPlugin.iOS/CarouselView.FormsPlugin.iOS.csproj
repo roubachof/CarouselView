@@ -55,12 +55,10 @@
       <Project>{14C534B6-1984-41A9-A384-D3A5508588E3}</Project>
       <Name>CarouselView.FormsPlugin.Abstractions</Name>
     </ProjectReference>
-  </ItemGroup>  
-
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Xamarin.Forms">
-      <Version>3.4.0.1009999</Version>
+      <Version>3.6.0.220655</Version>
     </PackageReference>
   </ItemGroup>
-  
 </Project>
