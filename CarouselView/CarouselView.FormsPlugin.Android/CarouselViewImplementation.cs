@@ -514,20 +514,28 @@ namespace CarouselView.FormsPlugin.Android
 
             protected override void Dispose(bool disposing)
             {
+                if (IsDisposed)
+                {
+                    return;
+                }
+
+                if (disposing)
+                {
+                    if (NativeView?.Tag != null)
+                    {
+                        NativeView.Tag.Dispose();
+                        NativeView.Tag = null;
+                    }
+
+                    if (NativeView != null)
+                    {
+                        NativeView.RemoveAllViews();
+                        NativeView.Dispose();
+                        NativeView = null;
+                    }
+                }
+
                 IsDisposed = true;
-
-                if (NativeView?.Tag != null)
-                {
-                    NativeView.Tag.Dispose();
-                    NativeView.Tag = null;
-                }
-
-                if (NativeView != null)
-                {
-                    NativeView.RemoveAllViews();
-                    NativeView.Dispose();
-                    NativeView = null;
-                }
 
                 base.Dispose(disposing);
             }

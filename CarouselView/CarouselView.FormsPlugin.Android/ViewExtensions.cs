@@ -21,6 +21,8 @@ namespace CarouselView.FormsPlugin.Android
 
         private CarouselViewControl _parent;
 
+        private bool _isDisposed;
+
         protected ItemContainer(IntPtr javaReference, JniHandleOwnership transfer)
             : base(javaReference, transfer)
         {
@@ -44,15 +46,25 @@ namespace CarouselView.FormsPlugin.Android
 
         protected override void Dispose(bool disposing)
         {
-            if (_parent != null)
+            if (_isDisposed)
             {
-                _parent.SizeChanged -= OnParentSizeChanged;
+                return;
             }
 
-            RemoveAllViews();
+            if (disposing)
+            {
+                if (_parent != null)
+                {
+                    _parent.SizeChanged -= OnParentSizeChanged;
+                }
 
-            _element = null;
-            _parent = null;
+                RemoveAllViews();
+
+                _element = null;
+                _parent = null;
+            }
+
+            _isDisposed = true;
 
             base.Dispose(disposing);
         }
